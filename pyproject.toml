@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gplot"
+version = "0.1.0"
+description = "Quick terminal plotting for GROMACS .xvg files"
+requires-python = ">=3.8"
+dependencies = [
+    "plotext>=5.2",
+]
+
+[project.scripts]
+gplot = "gplot.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gplot*"]
