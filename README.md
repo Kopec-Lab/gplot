@@ -1,5 +1,5 @@
 ![1D](assets/gplot_1d.png)
-![2D](assets/gplot_1D.png)
+![2D](assets/gplot_2d.png)
 
 # gplot
 
