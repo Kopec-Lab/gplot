@@ -12,6 +12,17 @@ MARKERS = ["hd", "fhd", "braille", "dot"]
 COLORS = ["cyan+", "green+", "red+", "yellow", "magenta+", "orange+", "blue+", "white"]
 
 
+def setup_plot(args):
+    """Reset the plot state and apply width/height overrides once."""
+    plt.clear_figure()
+    plt.theme("dark")
+    plt.clear_color()
+    if args.width or args.height:
+        w = args.width or plt.terminal_width()
+        h = args.height or plt.terminal_height()
+        plt.plot_size(w, h)
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="gplot",
@@ -201,16 +212,7 @@ def plot_heatmap(args, filepath):
 
     rgb_matrix = matrix_to_rgb(matrix, vmin, vmax, args.cmap)
 
-    plt.clear_figure()
-    plt.theme("dark")
-    plt.clear_color()
-    if args.width:
-        plt.plot_size(args.width, plt.terminal_height())
-    if args.height:
-        plt.plot_size(plt.terminal_width(), args.height)
-    if args.width and args.height:
-        plt.plot_size(args.width, args.height)
-
+    setup_plot(args)
     plt.matrix_plot(rgb_matrix)
 
     title = args.title or parsed.get("title")
@@ -278,15 +280,7 @@ def main(argv=None):
     # Use metadata from the first file for defaults
     first_meta = parsed_files[0][1]
 
-    plt.clear_figure()
-    plt.theme("dark")
-    plt.clear_color()
-    if args.width:
-        plt.plot_size(args.width, plt.terminal_height())
-    if args.height:
-        plt.plot_size(plt.terminal_width(), args.height)
-    if args.width and args.height:
-        plt.plot_size(args.width, args.height)
+    setup_plot(args)
 
     series_idx = 0
 
@@ -327,7 +321,8 @@ def main(argv=None):
 
         for ycol in ycols:
             y_data = get_columns(data, ycol)
-            legend = parsed["legends"].get(ycol - 1) if xcol == 0 else parsed["legends"].get(ycol)
+            # xmgrace: `s0 legend` labels the first Y series (data column 1)
+            legend = parsed["legends"].get(ycol - 1)
             label = make_label(filepath, legend) if (len(parsed_files) > 1 or len(ycols) > 1) else legend
             color = COLORS[series_idx % len(COLORS)]
             marker = MARKERS[series_idx % len(MARKERS)]

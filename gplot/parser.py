@@ -1,5 +1,12 @@
 """Parser for GROMACS .xvg and grid data files."""
 
+import re
+
+# Matches a header token, optionally followed by a "(...)" unit group,
+# so "X (nm) Z (nm) Potential (V)" parses to 3 items regardless of the
+# amount of whitespace between them.
+_COL_TOKEN = re.compile(r"\S+(?:\s+\([^)]*\))?")
+
 
 def parse_grid(filepath):
     """Parse a 3-column (x, y, z) grid file into a 2D matrix.
@@ -28,16 +35,11 @@ def parse_grid(filepath):
             if line.startswith("#"):
                 low = line.lower()
                 if "columns:" in low or "column" in low:
-                    # Try to extract axis names from column header comments
-                    # e.g. "# Columns: X (nm)  Z (nm)  Potential (V)"
                     parts = line.split(":", 1)
                     if len(parts) == 2:
-                        cols = parts[1].strip().split("  ")
-                        cols = [c.strip() for c in cols if c.strip()]
+                        cols = _COL_TOKEN.findall(parts[1])
                         if len(cols) >= 3:
-                            xlabel = cols[0]
-                            ylabel = cols[1]
-                            zlabel = cols[2]
+                            xlabel, ylabel, zlabel = cols[0], cols[1], cols[2]
                 elif title is None and not line.startswith("##"):
                     # Use first non-trivial comment as title
                     candidate = line.lstrip("# ").strip()
