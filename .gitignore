@@ -4,3 +4,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+*.png
+notes
+*.xvg
+*.dat
+
