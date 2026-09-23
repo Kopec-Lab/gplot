@@ -1,0 +1,34 @@
+I want an easy tool for quick plotting in the terminal window, focusing on .xvg files produced with gromacs
+Some examples are given in the directory
+
+the comments usually follow the # whereas @ give some instructions about axis, titles etc following the xmgrace lingo
+
+it is not essential to implement all this - i essenially want to be able to quickly produce a plot in the terminal window
+with axis legends, mostly focusing on simple XY plots when two columns are given in the input file. when more than 2 columns are given
+the user should be able to select which column should be the X and which column the Y axis. I also want to be able to plot two files of the same type at the same time, with automatically different symbols chosen, so I can easily compare two (or more) files from different simulations, conditions, etc
+
+I am not sure what language is best to achieve this, so suggest some.
+
+
+
+Version: 2.1.76
+  Session name: /rename to add a name
+  Session ID: 901cf746-f999-4806-b934-923ba7300df1
+  cwd: /Users/wojciechkopec/SOFTWARE/CLI-PLOTTING-GMX-CLAUDE
+  Login method: Claude Pro Account
+  Organization: 9000nin@gmail.com's Organization
+  Email: 9000nin@gmail.com
+
+  Model: opus (claude-opus-4-6)
+  MCP servers: claude.ai Gmail △, claude.ai Google Calendar △
+  Memory: auto memory (~/.claude/projects/-Users-wojciechkopec-SOFTWARE-CLI-PLOTTING-GMX-CLAUDE/memory/MEMORY.md), nested (CLAUDE.md)
+  Setting sources: User settings, Project local settings
+
+
+
+
+
+Resume this session with:
+claude --resume 901cf746-f999-4806-b934-923ba7300df1
+
+

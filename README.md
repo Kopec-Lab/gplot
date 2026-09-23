@@ -10,10 +10,11 @@ A command-line tool for quick terminal plotting of GROMACS `.xvg` files and 2D g
 ## Installation
 
 ```bash
-pip install -e .
+pip install -e .          # terminal plotting only
+pip install -e ".[png]"   # also enables --png (adds matplotlib)
 ```
 
-This installs `gplot` as a command available anywhere in your terminal, along with the required `plotext` library.
+This installs `gplot` as a command available anywhere in your terminal, along with the required `plotext` library. The `[png]` extra pulls in matplotlib for optional PNG export.
 
 ## Usage
 
@@ -72,6 +73,15 @@ gplot myfile.xvg -t "My Title" --xlabel "Time (ns)" --ylabel "RMSD (nm)"
 gplot myfile.xvg -W 120 -H 30   # width and height in characters
 ```
 
+### Saving to PNG
+
+Add `--png OUT` to render the terminal plot **and** save a high-resolution PNG (requires the `[png]` extra):
+
+```bash
+gplot myfile.xvg --png plot.png
+gplot --heatmap potential_2d.dat --png heatmap.png
+```
+
 ## 2D heatmaps
 
 Use `--heatmap` to plot 2D grid data from a 3-column (x, y, z) text file:
@@ -126,6 +136,7 @@ The first non-trivial `#` comment line is used as the plot title.
 | `--cmap NAME` | Colormap: viridis, plasma, coolwarm, bwr, hot |
 | `--vmin V` | Min value for heatmap color scale |
 | `--vmax V` | Max value for heatmap color scale |
+| `--png PATH` | Also save the plot as a PNG (requires the `[png]` extra) |
 
 ## .xvg file format
 

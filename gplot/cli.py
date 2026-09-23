@@ -93,6 +93,12 @@ def build_parser():
         default=None,
         help="Plot height in characters",
     )
+    parser.add_argument(
+        "--png",
+        default=None,
+        metavar="PATH",
+        help="Also save the plot as a PNG (requires matplotlib)",
+    )
 
     # Per-file column overrides: -f1x 1 -f1y 3 -f2x 1 -f2y 4 etc.
     # We handle these manually in parse_per_file_args
@@ -139,6 +145,136 @@ def make_label(filepath, legend=None):
     if legend:
         return f"{base}: {legend}"
     return base
+
+
+def collect_series(args, parsed_files, per_file):
+    """Resolve per-file column selection and legends into a list of series.
+
+    Returns a list of (x_data, y_data, label) tuples. Both the terminal
+    render and the PNG export consume this so they iterate identically.
+    """
+    series = []
+    n_files = len(parsed_files)
+    for file_num, (filepath, parsed) in enumerate(parsed_files, start=1):
+        data = parsed["data"]
+        if not data:
+            print(f"Warning: no data in {filepath}", file=sys.stderr)
+            continue
+        ncols = len(data[0])
+
+        fx = per_file.get(file_num, {}).get("x", args.x)
+        xcol = fx - 1
+        if xcol < 0 or xcol >= ncols:
+            print(
+                f"Error: X column {fx} out of range for {filepath} ({ncols} columns)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        x_data = get_columns(data, xcol)
+
+        if args.plot_all:
+            ycols = [i for i in range(ncols) if i != xcol]
+        else:
+            fy = per_file.get(file_num, {}).get("y", args.y or 2)
+            ycol = fy - 1
+            if ycol < 0 or ycol >= ncols:
+                print(
+                    f"Error: Y column {fy} out of range for {filepath} ({ncols} columns)",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            ycols = [ycol]
+
+        for ycol in ycols:
+            y_data = get_columns(data, ycol)
+            # xmgrace: `s0 legend` labels the first Y series (data column 1)
+            legend = parsed["legends"].get(ycol - 1)
+            label = (
+                make_label(filepath, legend)
+                if (n_files > 1 or len(ycols) > 1)
+                else legend
+            )
+            series.append((x_data, y_data, label))
+    return series
+
+
+def _import_mpl():
+    """Lazy-import matplotlib with the Agg backend; returns the pyplot module or None."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as mpl
+        return mpl
+    except ImportError:
+        print(
+            "Error: --png requires matplotlib. Install with: pip install matplotlib",
+            file=sys.stderr,
+        )
+        return None
+
+
+def save_lines_png(series, args, first_meta, out_path):
+    """Render the line plot to a PNG via matplotlib."""
+    mpl = _import_mpl()
+    if mpl is None:
+        return
+    fig, ax = mpl.subplots(figsize=(8, 5))
+    any_label = False
+    for x_data, y_data, label in series:
+        ax.plot(x_data, y_data, label=label)
+        any_label = any_label or bool(label)
+
+    title = args.title or first_meta.get("title")
+    xlabel = args.xlabel or first_meta.get("xlabel")
+    ylabel = args.ylabel or first_meta.get("ylabel")
+    if title:
+        ax.set_title(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    if any_label:
+        ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    mpl.close(fig)
+    print(f"Saved PNG: {out_path}")
+
+
+def save_heatmap_png(parsed, args, vmin, vmax, out_path):
+    """Render the heatmap to a PNG via matplotlib."""
+    mpl = _import_mpl()
+    if mpl is None:
+        return
+    x_vals = parsed["x_vals"]
+    y_vals = parsed["y_vals"]
+    extent = [x_vals[0], x_vals[-1], y_vals[0], y_vals[-1]]
+
+    fig, ax = mpl.subplots(figsize=(8, 6))
+    im = ax.imshow(
+        parsed["matrix"],
+        cmap=args.cmap,
+        vmin=vmin,
+        vmax=vmax,
+        origin="lower",
+        extent=extent,
+        aspect="auto",
+    )
+    fig.colorbar(im, ax=ax, label=parsed.get("zlabel") or "Value")
+
+    title = args.title or parsed.get("title")
+    xlabel = args.xlabel or parsed.get("xlabel")
+    ylabel = args.ylabel or parsed.get("ylabel")
+    if title:
+        ax.set_title(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    mpl.close(fig)
+    print(f"Saved PNG: {out_path}")
 
 
 COLORMAPS = {
@@ -252,6 +388,9 @@ def plot_heatmap(args, filepath):
         print(f"\033[48;2;{r};{g};{b}m \033[0m", end="")
     print(f" {vmax:.3f}")
 
+    if args.png:
+        save_heatmap_png(parsed, args, vmin, vmax, args.png)
+
 
 def main(argv=None):
     if argv is None:
@@ -280,60 +419,21 @@ def main(argv=None):
     # Use metadata from the first file for defaults
     first_meta = parsed_files[0][1]
 
+    series = collect_series(args, parsed_files, per_file)
+
     setup_plot(args)
+    for idx, (x_data, y_data, label) in enumerate(series):
+        plt.plot(
+            x_data,
+            y_data,
+            label=label,
+            color=COLORS[idx % len(COLORS)],
+            marker=MARKERS[idx % len(MARKERS)],
+        )
 
-    series_idx = 0
-
-    for file_num, (filepath, parsed) in enumerate(parsed_files, start=1):
-        data = parsed["data"]
-        if not data:
-            print(f"Warning: no data in {filepath}", file=sys.stderr)
-            continue
-
-        ncols = len(data[0])
-
-        # Determine X column for this file
-        fx = per_file.get(file_num, {}).get("x", args.x)
-        xcol = fx - 1  # convert to 0-based
-
-        if xcol < 0 or xcol >= ncols:
-            print(
-                f"Error: X column {fx} out of range for {filepath} ({ncols} columns)",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        x_data = get_columns(data, xcol)
-
-        if args.plot_all:
-            # Plot all columns except X
-            ycols = [i for i in range(ncols) if i != xcol]
-        else:
-            fy = per_file.get(file_num, {}).get("y", args.y or 2)
-            ycol = fy - 1
-            if ycol < 0 or ycol >= ncols:
-                print(
-                    f"Error: Y column {fy} out of range for {filepath} ({ncols} columns)",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            ycols = [ycol]
-
-        for ycol in ycols:
-            y_data = get_columns(data, ycol)
-            # xmgrace: `s0 legend` labels the first Y series (data column 1)
-            legend = parsed["legends"].get(ycol - 1)
-            label = make_label(filepath, legend) if (len(parsed_files) > 1 or len(ycols) > 1) else legend
-            color = COLORS[series_idx % len(COLORS)]
-            marker = MARKERS[series_idx % len(MARKERS)]
-            plt.plot(x_data, y_data, label=label, color=color, marker=marker)
-            series_idx += 1
-
-    # Labels and title
     title = args.title or first_meta.get("title")
     xlabel = args.xlabel or first_meta.get("xlabel")
     ylabel = args.ylabel or first_meta.get("ylabel")
-
     if title:
         plt.title(title)
     if xlabel:
@@ -342,6 +442,9 @@ def main(argv=None):
         plt.ylabel(ylabel)
 
     plt.show()
+
+    if args.png:
+        save_lines_png(series, args, first_meta, args.png)
 
 
 if __name__ == "__main__":

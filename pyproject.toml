@@ -11,6 +11,9 @@ dependencies = [
     "plotext>=5.2",
 ]
 
+[project.optional-dependencies]
+png = ["matplotlib>=3.5"]
+
 [project.scripts]
 gplot = "gplot.cli:main"
 
